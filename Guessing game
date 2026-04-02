@@ -1,0 +1,57 @@
+import argparse
+import random
+import time
+import datetime
+import getpass
+import os
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Guess the Number Game")
+    parser.add_argument("--max", type=int, default=100, help="Maximum number (default 100)")
+    parser.add_argument("--seed", type=str, default="auto",
+                        help="Random seed; use 'auto' for name+day-of-year")
+    args = parser.parse_args()
+
+    # compute reproducible seed
+    if args.seed == "auto":
+        full_name = "Riya Modi"  # ← replace with your full name
+        day_of_year = datetime.datetime.utcnow().timetuple().tm_yday
+        seed_value = len(full_name) + day_of_year
+    else:
+        try:
+            seed_value = int(args.seed)
+        except ValueError:
+            print("Invalid seed; using automatic seed instead.")
+            full_name = "Riya Modi"
+            day_of_year = datetime.datetime.utcnow().timetuple().tm_yday
+            seed_value = len(full_name) + day_of_year
+
+    random.seed(seed_value)
+    target = random.randint(1, args.max)
+
+    print(f"Guess the number between 1 and {args.max}")
+    start_time = time.time()
+    attempts = 0
+
+    while True:
+        guess_input = input("Enter your guess: ")
+        try:
+            guess = int(guess_input)
+        except ValueError:
+            print("Please enter a valid integer!")
+            continue
+
+        attempts += 1
+
+        if guess < target:
+            print("Higher!")
+        elif guess > target:
+            print("Lower!")
+        else:
+            elapsed = time.time() - start_time
+            print(f"Correct! You got it in {attempts} tries and {elapsed:.2f} seconds.")
+            break
+
+
+if __name__ == "__main__":
+    main()
