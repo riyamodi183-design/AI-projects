@@ -1,0 +1,183 @@
+# game.py
+# Simple finite game: collect the bouncing ball 5 times within a time limit.
+# Requires: pygame (pip install pygame)
+
+import pygame, random, sys, time
+
+pygame.init()
+WIDTH, HEIGHT = 640, 480
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Catch the Bouncer - Riya Modi")
+clock = pygame.time.Clock()
+FONT = pygame.font.SysFont(None, 28)
+BIG = pygame.font.SysFont(None, 56)
+
+# Player
+player_size = 30
+player = pygame.Rect(WIDTH//2 - player_size//2, HEIGHT - 60, player_size, player_size)
+player_speed = 5
+
+# Bouncing ball (moving object)
+ball_radius = 16
+ball_x = random.randint(ball_radius, WIDTH-ball_radius)
+ball_y = random.randint(ball_radius, HEIGHT//2)
+ball_vx = 3
+ball_vy = 3
+
+# Game state
+score = 0
+target_score = 5
+start_time = time.time()
+time_limit = 45  # seconds
+game_over = False
+won = False
+show_instructions = True
+instr_display_time = 3.5  # seconds to auto-hide instructions at start
+instr_start = time.time()
+
+def draw_text(s, x, y, font=FONT, center=False):
+    surf = font.render(s, True, (255,255,255))
+    rect = surf.get_rect()
+    if center:
+        rect.center = (x,y)
+    else:
+        rect.topleft = (x,y)
+    screen.blit(surf, rect)
+
+def reset_ball():
+    global ball_x, ball_y, ball_vx, ball_vy
+    ball_x = random.randint(ball_radius, WIDTH-ball_radius)
+    ball_y = random.randint(ball_radius, HEIGHT//2)
+    ball_vx = random.choice([-3,-2,2,3])
+    ball_vy = random.choice([-3,-2,2,3])
+
+# ======= Instruction Screen Before Game Starts =======
+instr_lines = [
+    "Welcome to Catch the Bouncer!",
+    "Instructions:",
+    "Use arrow keys or WASD to move your player.",
+    "Catch the bouncing ball 5 times within 45 seconds to win.",
+    "Press ESC to quit at any time.",
+    "Press any key to start..."
+]
+
+screen.fill((30, 30, 40))
+for i, line in enumerate(instr_lines):
+    draw_text(line, WIDTH//2, 50 + i*40, FONT, center=True)
+pygame.display.update()
+
+# Wait for key press to start
+waiting = True
+while waiting:
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            waiting = False
+        elif event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+# ======= Main Game Loop =======
+while True:
+    dt = clock.tick(60) / 1000.0
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
+            if game_over:
+                # allow restart by pressing R
+                if event.key == pygame.K_r:
+                    score = 0
+                    start_time = time.time()
+                    game_over = False
+                    won = False
+                    reset_ball()
+                    player.x = WIDTH//2 - player_size//2
+                    player.y = HEIGHT - 60
+
+    keys = pygame.key.get_pressed()
+    if not game_over:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            player.x -= player_speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            player.x += player_speed
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            player.y -= player_speed
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            player.y += player_speed
+
+        # clamp
+        player.x = max(0, min(WIDTH-player_size, player.x))
+        player.y = max(0, min(HEIGHT-player_size, player.y))
+
+        # move ball
+        ball_x += ball_vx
+        ball_y += ball_vy
+        if ball_x - ball_radius <= 0 or ball_x + ball_radius >= WIDTH:
+            ball_vx = -ball_vx
+        if ball_y - ball_radius <= 0 or ball_y + ball_radius >= HEIGHT:
+            ball_vy = -ball_vy
+
+        # collision?
+        player_rect = player
+        ball_rect = pygame.Rect(ball_x - ball_radius, ball_y - ball_radius, ball_radius*2, ball_radius*2)
+        if player_rect.colliderect(ball_rect):
+            score += 1
+            # speed up ball a little
+            if ball_vx > 0:
+                ball_vx += 1
+            else:
+                ball_vx -= 1
+            if ball_vy > 0:
+                ball_vy += 1
+            else:
+                ball_vy -= 1
+            reset_ball()
+
+        elapsed = time.time() - start_time
+        if score >= target_score:
+            game_over = True
+            won = True
+        elif elapsed >= time_limit:
+            game_over = True
+            won = False
+
+        # auto-hide instructions after short time
+        if show_instructions and time.time() - instr_start > instr_display_time:
+            show_instructions = False
+
+    # draw
+    screen.fill((30, 30, 40))
+    # player
+    pygame.draw.rect(screen, (100, 200, 120), player)
+    # ball
+    pygame.draw.circle(screen, (220, 80, 80), (int(ball_x), int(ball_y)), ball_radius)
+    # HUD
+    draw_text(f"Score: {score}/{target_score}", 10, 10)
+    remaining = max(0, int(time_limit - (time.time() - start_time)))
+    draw_text(f"Time: {remaining}s", WIDTH - 110, 10)
+    draw_text("Use arrow keys or WASD to move. Press ESC to quit.", 10, HEIGHT-30, FONT)
+
+    if show_instructions:
+        # brief instruction shown on same window at start
+        instr = "Catch the bouncing ball 5 times within 45 seconds to win!"
+        draw_text(instr, WIDTH//2, 50, FONT, center=True)
+
+    if game_over:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(200)
+        overlay.fill((10,10,20))
+        screen.blit(overlay, (0,0))
+        if won:
+            msg = "You WIN! Press R to play again or ESC to exit."
+            draw_text("WIN!", WIDTH//2, HEIGHT//2 - 40, BIG, center=True)
+            draw_text(msg, WIDTH//2, HEIGHT//2 + 10, FONT, center=True)
+        else:
+            msg = "Time's up — you lost. Press R to try again or ESC to exit."
+            draw_text("TIME UP", WIDTH//2, HEIGHT//2 - 40, BIG, center=True)
+            draw_text(msg, WIDTH//2, HEIGHT//2 + 10, FONT, center=True)
+
+    pygame.display.flip()
